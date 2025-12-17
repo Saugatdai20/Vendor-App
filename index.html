@@ -29,10 +29,16 @@
 </div>
 
 <!-- FORM -->
-<div class="grid grid-cols-1 md:grid-cols-7 gap-3">
+<div class="grid grid-cols-1 md:grid-cols-8 gap-3">
+
+  <!-- AD Date (Auto Today) -->
+  <input id="adDate" type="date" class="border p-2 rounded">
+
+  <!-- Vendor -->
   <input id="vendor" list="vendorList" class="border p-2 rounded" placeholder="Vendor Name">
   <datalist id="vendorList"></datalist>
 
+  <!-- Site -->
   <select id="site" class="border p-2 rounded">
     <option value="">Select Site</option>
     <option>Pepsicola Site</option>
@@ -50,6 +56,7 @@
     <option>Pending</option>
     <option>Approved</option>
   </select>
+
 </div>
 
 <button onclick="addOrder()" class="mt-4 bg-red-600 text-white px-6 py-2 rounded">
@@ -81,17 +88,23 @@ Add Order
 </div>
 
 <script>
-/* -------- NEPALI DATE (Approx) -------- */
-function getNepaliDate(){
-  const d=new Date();
-  let y=d.getFullYear()+56,m=d.getMonth()+9,da=d.getDate();
-  if(m>12){m-=12;y++;}
+/* -------- AUTO AD DATE & NEPALI BS DATE -------- */
+const adDateEl = document.getElementById('adDate');
+const today = new Date().toISOString().split('T')[0];
+adDateEl.value = today;
+
+function getNepaliDate(ad=null){
+  const d = ad ? new Date(ad) : new Date();
+  let y = d.getFullYear() + 56;
+  let m = d.getMonth() + 9;
+  let da = d.getDate();
+  if(m>12){ m-=12; y++; }
   return `${y}-${String(m).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
 }
 
 /* -------- DATA -------- */
-let orders=JSON.parse(localStorage.getItem('orders'))||[];
-let sn=orders.length?Math.max(...orders.map(o=>o.sn))+1:1;
+let orders = JSON.parse(localStorage.getItem('orders')) || [];
+let sn = orders.length ? Math.max(...orders.map(o=>o.sn)) + 1 : 1;
 
 const vendorEl=document.getElementById('vendor');
 const siteEl=document.getElementById('site');
@@ -103,25 +116,28 @@ const statusEl=document.getElementById('status');
 
 /* -------- ADD ORDER -------- */
 function addOrder(){
-  if(!vendorEl.value||!siteEl.value||!productEl.value||!qtyEl.value||!priceEl.value)
+  if(!adDateEl.value || !vendorEl.value || !siteEl.value || !productEl.value || !qtyEl.value || !priceEl.value)
     return alert('Fill all fields');
 
   orders.push({
-    sn:sn++,
-    ad:new Date().toLocaleDateString(),
-    bs:getNepaliDate(),
-    vendor:vendorEl.value,
-    site:siteEl.value,
-    product:productEl.value,
-    qty:qtyEl.value,
-    price:priceEl.value,
-    total:qtyEl.value*priceEl.value,
-    orderedBy:orderedByEl.value,
-    status:statusEl.value
+    sn: sn++,
+    ad: adDateEl.value,
+    bs: getNepaliDate(adDateEl.value),
+    vendor: vendorEl.value,
+    site: siteEl.value,
+    product: productEl.value,
+    qty: qtyEl.value,
+    price: priceEl.value,
+    total: qtyEl.value * priceEl.value,
+    orderedBy: orderedByEl.value,
+    status: statusEl.value
   });
 
-  localStorage.setItem('orders',JSON.stringify(orders));
-  vendorEl.value=productEl.value=qtyEl.value=priceEl.value=orderedByEl.value='';
+  localStorage.setItem('orders', JSON.stringify(orders));
+
+  adDateEl.value = today;
+  vendorEl.value = productEl.value = qtyEl.value = priceEl.value = orderedByEl.value = '';
+
   render();
 }
 
