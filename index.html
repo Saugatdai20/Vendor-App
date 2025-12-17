@@ -5,6 +5,7 @@
 <title>Swostik Construction - PO System</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
 
 <!-- jsPDF -->
@@ -13,6 +14,9 @@
 
 <!-- Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- ✅ Accurate Nepali Date Converter -->
+<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@2.3.0/dist/nepali-date-converter.umd.js"></script>
 </head>
 
 <body class="bg-gray-100 p-6">
@@ -31,14 +35,11 @@
 <!-- FORM -->
 <div class="grid grid-cols-1 md:grid-cols-8 gap-3">
 
-  <!-- AD Date (Auto Today) -->
   <input id="adDate" type="date" class="border p-2 rounded">
 
-  <!-- Vendor -->
   <input id="vendor" list="vendorList" class="border p-2 rounded" placeholder="Vendor Name">
   <datalist id="vendorList"></datalist>
 
-  <!-- Site -->
   <select id="site" class="border p-2 rounded">
     <option value="">Select Site</option>
     <option>Pepsicola Site</option>
@@ -66,7 +67,7 @@ Add Order
 <!-- SITE TABLES -->
 <div id="siteTables" class="mt-8"></div>
 
-<!-- SITE SUMMARY -->
+<!-- SUMMARY -->
 <h2 class="text-lg font-bold mt-10 mb-2 text-red-600">Site-Wise Total Summary</h2>
 <table class="w-full border text-sm">
 <thead class="bg-gray-200">
@@ -88,35 +89,44 @@ Add Order
 </div>
 
 <script>
-/* -------- AUTO AD DATE & NEPALI BS DATE -------- */
+/* ---------- AUTO AD DATE ---------- */
 const adDateEl = document.getElementById('adDate');
 const today = new Date().toISOString().split('T')[0];
 adDateEl.value = today;
 
-function getNepaliDate(ad=null){
-  const d = ad ? new Date(ad) : new Date();
-  let y = d.getFullYear() + 56;
-  let m = d.getMonth() + 9;
-  let da = d.getDate();
-  if(m>12){ m-=12; y++; }
-  return `${y}-${String(m).padStart(2,'0')}-${String(da).padStart(2,'0')}`;
+/* ---------- ACCURATE NEPALI DATE + TIME ---------- */
+function getNepaliDate(adDate) {
+  const ad = adDate ? new Date(adDate) : new Date();
+
+  const bs = NepaliFunctions.AD2BS({
+    year: ad.getFullYear(),
+    month: ad.getMonth() + 1,
+    day: ad.getDate()
+  });
+
+  const time = ad.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  return `${bs.year}-${String(bs.month).padStart(2,'0')}-${String(bs.day).padStart(2,'0')} ${time}`;
 }
 
-/* -------- DATA -------- */
+/* ---------- DATA ---------- */
 let orders = JSON.parse(localStorage.getItem('orders')) || [];
-let sn = orders.length ? Math.max(...orders.map(o=>o.sn)) + 1 : 1;
+let sn = orders.length ? Math.max(...orders.map(o => o.sn)) + 1 : 1;
 
-const vendorEl=document.getElementById('vendor');
-const siteEl=document.getElementById('site');
-const productEl=document.getElementById('product');
-const qtyEl=document.getElementById('quantity');
-const priceEl=document.getElementById('price');
-const orderedByEl=document.getElementById('orderedBy');
-const statusEl=document.getElementById('status');
+const vendorEl = document.getElementById('vendor');
+const siteEl = document.getElementById('site');
+const productEl = document.getElementById('product');
+const qtyEl = document.getElementById('quantity');
+const priceEl = document.getElementById('price');
+const orderedByEl = document.getElementById('orderedBy');
+const statusEl = document.getElementById('status');
 
-/* -------- ADD ORDER -------- */
-function addOrder(){
-  if(!adDateEl.value || !vendorEl.value || !siteEl.value || !productEl.value || !qtyEl.value || !priceEl.value)
+/* ---------- ADD ORDER ---------- */
+function addOrder() {
+  if (!adDateEl.value || !vendorEl.value || !siteEl.value || !productEl.value || !qtyEl.value || !priceEl.value)
     return alert('Fill all fields');
 
   orders.push({
@@ -135,38 +145,39 @@ function addOrder(){
 
   localStorage.setItem('orders', JSON.stringify(orders));
 
-  adDateEl.value = today;
   vendorEl.value = productEl.value = qtyEl.value = priceEl.value = orderedByEl.value = '';
+  adDateEl.value = today;
 
   render();
 }
 
-/* -------- RENDER -------- */
-function render(){
+/* ---------- RENDER ---------- */
+function render() {
   renderVendorList();
   renderSiteTables();
   renderSummary();
 }
 render();
 
-/* -------- VENDOR LIST -------- */
-function renderVendorList(){
-  const list=document.getElementById('vendorList');
-  const vendors=[...new Set(orders.map(o=>o.vendor))];
-  list.innerHTML=vendors.map(v=>`<option value="${v}">`).join('');
+/* ---------- VENDOR LIST ---------- */
+function renderVendorList() {
+  const list = document.getElementById('vendorList');
+  const vendors = [...new Set(orders.map(o => o.vendor))];
+  list.innerHTML = vendors.map(v => `<option value="${v}">`).join('');
 }
 
-/* -------- SITE TABLES -------- */
-function renderSiteTables(){
-  const container=document.getElementById('siteTables');
-  container.innerHTML='';
-  const sites=[...new Set(orders.map(o=>o.site))];
+/* ---------- SITE TABLES ---------- */
+function renderSiteTables() {
+  const container = document.getElementById('siteTables');
+  container.innerHTML = '';
 
-  sites.forEach(site=>{
-    const siteOrders=orders.filter(o=>o.site===site);
-    let total=siteOrders.reduce((s,o)=>s+o.total,0);
+  const sites = [...new Set(orders.map(o => o.site))];
 
-    let rows=siteOrders.map(o=>`
+  sites.forEach(site => {
+    const siteOrders = orders.filter(o => o.site === site);
+    const total = siteOrders.reduce((s, o) => s + o.total, 0);
+
+    const rows = siteOrders.map(o => `
       <tr>
         <td class="border p-1">${o.sn}</td>
         <td class="border p-1">${o.ad}</td>
@@ -180,9 +191,10 @@ function renderSiteTables(){
         <td class="border p-1 text-center">
           <button onclick="billPDF(${o.sn})" class="bg-blue-600 text-white px-2 py-1 text-xs rounded">Bill</button>
         </td>
-      </tr>`).join('');
+      </tr>
+    `).join('');
 
-    container.innerHTML+=`
+    container.innerHTML += `
     <div class="mt-8">
       <h3 class="font-bold text-red-600 mb-2">${site}</h3>
       <table class="w-full text-sm border">
@@ -206,84 +218,101 @@ function renderSiteTables(){
   });
 }
 
-/* -------- SUMMARY -------- */
-function renderSummary(){
-  const body=document.getElementById('siteSummary');
-  body.innerHTML='';
-  const sites=[...new Set(orders.map(o=>o.site))];
-  sites.forEach(s=>{
-    const total=orders.filter(o=>o.site===s).reduce((a,b)=>a+b.total,0);
-    body.innerHTML+=`
-      <tr><td class="border p-2">${s}</td><td class="border p-2 font-bold">${total}</td></tr>`;
+/* ---------- SUMMARY ---------- */
+function renderSummary() {
+  const body = document.getElementById('siteSummary');
+  body.innerHTML = '';
+
+  [...new Set(orders.map(o => o.site))].forEach(site => {
+    const total = orders.filter(o => o.site === site).reduce((s, o) => s + o.total, 0);
+    body.innerHTML += `
+      <tr>
+        <td class="border p-2">${site}</td>
+        <td class="border p-2 font-bold">${total}</td>
+      </tr>`;
   });
 }
 
-/* -------- BILL PDF -------- */
-function billPDF(sn){
-  const o=orders.find(x=>x.sn===sn);
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF();
-  doc.text('Swostik Construction - Vendor Bill',14,20);
-  doc.autoTable({startY:30,body:[
-    ['Bill No',o.sn],['AD Date',o.ad],['BS Date',o.bs],
-    ['Vendor',o.vendor],['Site',o.site],['Product',o.product],
-    ['Qty',o.qty],['Rate',o.price],['Total',o.total]
-  ]});
-  doc.text('Authorized Signature:',14,doc.lastAutoTable.finalY+20);
+/* ---------- BILL PDF ---------- */
+function billPDF(sn) {
+  const o = orders.find(x => x.sn === sn);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.text('Swostik Construction - Vendor Bill', 14, 20);
+  doc.autoTable({
+    startY: 30,
+    body: [
+      ['Bill No', o.sn],
+      ['AD Date', o.ad],
+      ['BS Date', o.bs],
+      ['Vendor', o.vendor],
+      ['Site', o.site],
+      ['Product', o.product],
+      ['Qty', o.qty],
+      ['Rate', o.price],
+      ['Total', o.total]
+    ]
+  });
+
+  doc.text('Authorized Signature:', 14, doc.lastAutoTable.finalY + 20);
   doc.save(`Bill-${o.sn}.pdf`);
 }
 
-/* -------- SITE PDF -------- */
-function sitePDF(site){
-  const data=orders.filter(o=>o.site===site);
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF('l');
-  doc.text(`Site Bills - ${site}`,14,15);
+/* ---------- SITE PDF ---------- */
+function sitePDF(site) {
+  const data = orders.filter(o => o.site === site);
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l');
 
+  doc.text(`Site Bills - ${site}`, 14, 15);
   doc.autoTable({
-    startY:25,
-    head:[['SN','AD','BS','Vendor','Product','Qty','Rate','Total']],
-    body:data.map(o=>[o.sn,o.ad,o.bs,o.vendor,o.product,o.qty,o.price,o.total])
+    startY: 25,
+    head: [['SN', 'AD', 'BS', 'Vendor', 'Product', 'Qty', 'Rate', 'Total']],
+    body: data.map(o => [o.sn, o.ad, o.bs, o.vendor, o.product, o.qty, o.price, o.total])
   });
 
-  const total=data.reduce((s,o)=>s+o.total,0);
-  doc.text(`Total Amount: Rs ${total}`,14,doc.lastAutoTable.finalY+10);
-  doc.text('Authorized Signature:',14,doc.lastAutoTable.finalY+25);
+  const total = data.reduce((s, o) => s + o.total, 0);
+  doc.text(`Total Amount: Rs ${total}`, 14, doc.lastAutoTable.finalY + 10);
+  doc.text('Authorized Signature:', 14, doc.lastAutoTable.finalY + 25);
 
   doc.save(`${site}-Bills.pdf`);
 }
 
-/* -------- SITE EXCEL -------- */
-function siteExcel(site){
-  const data=orders.filter(o=>o.site===site);
-  const ws=XLSX.utils.json_to_sheet(data);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,site);
-  XLSX.writeFile(wb,`${site}-Bills.xlsx`);
+/* ---------- SITE EXCEL ---------- */
+function siteExcel(site) {
+  const data = orders.filter(o => o.site === site);
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, site);
+  XLSX.writeFile(wb, `${site}-Bills.xlsx`);
 }
 
-/* -------- EXPORT ALL -------- */
-function exportAllPDF(){
-  const {jsPDF}=window.jspdf;
-  const doc=new jsPDF('l');
-  doc.text('All Orders',14,15);
+/* ---------- EXPORT ALL ---------- */
+function exportAllPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l');
+
+  doc.text('All Orders', 14, 15);
   doc.autoTable({
-    startY:25,
-    head:[['SN','AD','BS','Vendor','Site','Product','Qty','Rate','Total']],
-    body:orders.map(o=>[o.sn,o.ad,o.bs,o.vendor,o.site,o.product,o.qty,o.price,o.total])
+    startY: 25,
+    head: [['SN','AD','BS','Vendor','Site','Product','Qty','Rate','Total']],
+    body: orders.map(o => [o.sn, o.ad, o.bs, o.vendor, o.site, o.product, o.qty, o.price, o.total])
   });
+
   doc.save('All-Orders.pdf');
 }
 
-function exportAllExcel(){
-  const ws=XLSX.utils.json_to_sheet(orders);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Orders');
-  XLSX.writeFile(wb,'All-Orders.xlsx');
+function exportAllExcel() {
+  const ws = XLSX.utils.json_to_sheet(orders);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Orders');
+  XLSX.writeFile(wb, 'All-Orders.xlsx');
 }
 </script>
 
 </body>
 </html>
+
 
 
