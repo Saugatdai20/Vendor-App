@@ -124,7 +124,7 @@ site:site.value,
 product:product.value,
 qty:+qty.value,
 rate:+rate.value,
-total:qty.value*rate.value,
+total:+qty.value*+rate.value,
 orderedBy:orderedBy.value,
 status:status.value
 };
@@ -134,16 +134,18 @@ localStorage.setItem('orders',JSON.stringify(orders));
 clearForm();render();
 }
 
-/* CLEAR */
+/* CLEAR FORM */
 function clearForm(){
 vendor.value=vatpan.value=product.value=qty.value=rate.value=orderedBy.value='';
 site.value='';status.value='Pending';editIndex=null;autoDT();
 }
 
-/* STATUS BADGE */
-const badge=s=>s==='Approved'
-?'<span class="bg-green-600 text-white px-2 py-1 rounded text-xs">Approved</span>'
-:'<span class="bg-red-600 text-white px-2 py-1 rounded text-xs">Pending</span>';
+/* RENDER STATUS COLOR */
+function statusBadge(status){
+return status==='Approved'
+?'bg-green-600 text-white'
+:'bg-red-600 text-white';
+}
 
 /* RENDER */
 function render(){
@@ -183,7 +185,7 @@ siteTables.innerHTML+=`
 </tr>
 </thead>
 <tbody>
-${siteOrders.map((o,i)=>`
+${siteOrders.map(o=>`
 <tr>
 <td class="border p-1">${o.sn}</td>
 <td class="border p-1">${o.datetime}</td>
@@ -193,7 +195,13 @@ ${siteOrders.map((o,i)=>`
 <td class="border p-1">${o.qty}</td>
 <td class="border p-1">${o.rate}</td>
 <td class="border p-1">${o.total}</td>
-<td class="border p-1 text-center">${badge(o.status)}</td>
+<td class="border p-1 text-center">
+<select onchange="changeStatus(${orders.indexOf(o)}, this.value)"
+  class="border rounded text-xs p-1 ${statusBadge(o.status)}">
+<option value="Pending" ${o.status==='Pending'?'selected':''}>Pending</option>
+<option value="Approved" ${o.status==='Approved'?'selected':''}>Approved</option>
+</select>
+</td>
 <td class="border p-1 text-center space-x-1">
 <button onclick="editOrder(${orders.indexOf(o)})" class="bg-blue-600 text-white px-2 py-1 text-xs rounded">Edit</button>
 <button onclick="deleteOrder(${orders.indexOf(o)})" class="bg-red-600 text-white px-2 py-1 text-xs rounded">Delete</button>
@@ -248,6 +256,13 @@ orders.splice(i,1);
 localStorage.setItem('orders',JSON.stringify(orders));
 render();
 }
+}
+
+/* CHANGE STATUS */
+function changeStatus(i,value){
+orders[i].status=value;
+localStorage.setItem('orders',JSON.stringify(orders));
+render();
 }
 
 /* SITE EXCEL */
@@ -346,5 +361,6 @@ XLSX.writeFile(wb,'Site-Summary.xlsx');
 
 </body>
 </html>
+
 
 
