@@ -15,304 +15,336 @@
 <!-- Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-<!-- ✅ Accurate Nepali Date Converter -->
-<script src="https://cdn.jsdelivr.net/npm/nepali-date-converter@2.3.0/dist/nepali-date-converter.umd.js"></script>
+<style>
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { position:absolute; left:0; top:0; width:100%; }
+}
+</style>
 </head>
 
 <body class="bg-gray-100 p-6">
-
-<div class="max-w-7xl mx-auto bg-white p-6 rounded-2xl shadow-xl">
+<div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow">
 
 <!-- HEADER -->
 <div class="flex gap-4 mb-6">
-  <img src="logo.jpg" class="w-20 h-20 object-contain rounded-full">
-  <div>
-    <h1 class="text-2xl font-bold text-red-600">Swostik Construction</h1>
-    <p class="text-gray-500">Vendor Order / Purchase Order System</p>
-  </div>
+<img src="logo.jpg" class="w-20 h-20 rounded-full object-contain">
+<div>
+<h1 class="text-2xl font-bold text-red-600">Swostik Construction</h1>
+<p class="text-gray-500">Vendor Order / Purchase Order System</p>
+</div>
 </div>
 
 <!-- FORM -->
-<div class="grid grid-cols-1 md:grid-cols-8 gap-3">
+<div class="grid grid-cols-1 md:grid-cols-10 gap-3">
+<input id="datetime" readonly class="border p-2 rounded bg-gray-100">
+<input id="vendor" class="border p-2 rounded" placeholder="Vendor Name">
+<input id="vatpan" class="border p-2 rounded" placeholder="VAT / PAN No">
 
-  <input id="adDate" type="date" class="border p-2 rounded">
+<select id="site" class="border p-2 rounded">
+<option value="">Select Site</option>
+<option>Pepsicola Site</option>
+<option>Thimi Site</option>
+<option>Budhanilkantha Site</option>
+<option>Banepa Site</option>
+</select>
 
-  <input id="vendor" list="vendorList" class="border p-2 rounded" placeholder="Vendor Name">
-  <datalist id="vendorList"></datalist>
+<input id="product" class="border p-2 rounded" placeholder="Product">
+<input id="qty" type="number" class="border p-2 rounded" placeholder="Qty">
+<input id="rate" type="number" class="border p-2 rounded" placeholder="Rate">
+<input id="orderedBy" class="border p-2 rounded" placeholder="Ordered By">
 
-  <select id="site" class="border p-2 rounded">
-    <option value="">Select Site</option>
-    <option>Pepsicola Site</option>
-    <option>Thimi Site</option>
-    <option>Budhanilkantha Site</option>
-    <option>Banepa Site</option>
-  </select>
-
-  <input id="product" class="border p-2 rounded" placeholder="Product">
-  <input id="quantity" type="number" class="border p-2 rounded" placeholder="Qty">
-  <input id="price" type="number" class="border p-2 rounded" placeholder="Rate">
-  <input id="orderedBy" class="border p-2 rounded" placeholder="Ordered By">
-
-  <select id="status" class="border p-2 rounded">
-    <option>Pending</option>
-    <option>Approved</option>
-  </select>
-
+<select id="status" class="border p-2 rounded">
+<option>Pending</option>
+<option>Approved</option>
+</select>
 </div>
 
-<button onclick="addOrder()" class="mt-4 bg-red-600 text-white px-6 py-2 rounded">
-Add Order
+<button onclick="saveOrder()" class="mt-4 bg-red-600 text-white px-6 py-2 rounded">
+Save Order
 </button>
 
 <!-- SITE TABLES -->
-<div id="siteTables" class="mt-8"></div>
+<div id="siteTables" class="mt-10"></div>
 
 <!-- SUMMARY -->
-<h2 class="text-lg font-bold mt-10 mb-2 text-red-600">Site-Wise Total Summary</h2>
+<div id="summarySection" class="mt-12 print-area">
+<h2 class="text-lg font-bold text-red-600">Site-Wise Total Summary</h2>
+<p id="summaryDT" class="text-sm text-gray-600 mb-2"></p>
+
 <table class="w-full border text-sm">
 <thead class="bg-gray-200">
 <tr>
 <th class="border p-2">Site</th>
-<th class="border p-2">Total Amount</th>
+<th class="border p-2">Total Amount (Rs)</th>
 </tr>
 </thead>
-<tbody id="siteSummary"></tbody>
+<tbody id="summary"></tbody>
+<tfoot>
+<tr class="bg-gray-100 font-bold">
+<td class="border p-2">Grand Total</td>
+<td class="border p-2" id="grandTotal"></td>
+</tr>
+</tfoot>
 </table>
+</div>
 
-<!-- EXPORT -->
-<div class="flex gap-4 mt-6">
-<button onclick="exportAllPDF()" class="bg-red-600 text-white px-4 py-2 rounded">Export All PDF</button>
-<button onclick="exportAllExcel()" class="bg-green-600 text-white px-4 py-2 rounded">Export All Excel</button>
-<button onclick="window.print()" class="bg-gray-700 text-white px-4 py-2 rounded">Print</button>
+<div class="flex gap-3 mt-4">
+<button onclick="printSummary()" class="bg-gray-700 text-white px-4 py-2 rounded">Print Summary</button>
+<button onclick="summaryPDF()" class="bg-red-600 text-white px-4 py-2 rounded">Summary PDF</button>
+<button onclick="summaryExcel()" class="bg-green-600 text-white px-4 py-2 rounded">Summary Excel</button>
 </div>
 
 </div>
 
 <script>
-/* ---------- AUTO AD DATE ---------- */
-const adDateEl = document.getElementById('adDate');
-const today = new Date().toISOString().split('T')[0];
-adDateEl.value = today;
+/* AUTO DATE TIME */
+function autoDT(){
+datetime.value=new Date().toLocaleDateString()+" "+new Date().toLocaleTimeString();
+}
+autoDT();
 
-/* ---------- ACCURATE NEPALI DATE + TIME ---------- */
-function getNepaliDate(adDate) {
-  const ad = adDate ? new Date(adDate) : new Date();
+/* DATA */
+let orders=JSON.parse(localStorage.getItem('orders'))||[];
+let sn=orders.length?Math.max(...orders.map(o=>o.sn))+1:1;
+let editIndex=null;
 
-  const bs = NepaliFunctions.AD2BS({
-    year: ad.getFullYear(),
-    month: ad.getMonth() + 1,
-    day: ad.getDate()
-  });
+/* SAVE / UPDATE */
+function saveOrder(){
+if(!vendor.value||!vatpan.value||!site.value||!product.value||!qty.value||!rate.value)
+return alert('Fill all fields');
 
-  const time = ad.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+const data={
+sn:editIndex===null?sn++:orders[editIndex].sn,
+datetime:datetime.value,
+vendor:vendor.value,
+vatpan:vatpan.value,
+site:site.value,
+product:product.value,
+qty:+qty.value,
+rate:+rate.value,
+total:qty.value*rate.value,
+orderedBy:orderedBy.value,
+status:status.value
+};
 
-  return `${bs.year}-${String(bs.month).padStart(2,'0')}-${String(bs.day).padStart(2,'0')} ${time}`;
+editIndex===null?orders.push(data):orders[editIndex]=data;
+localStorage.setItem('orders',JSON.stringify(orders));
+clearForm();render();
 }
 
-/* ---------- DATA ---------- */
-let orders = JSON.parse(localStorage.getItem('orders')) || [];
-let sn = orders.length ? Math.max(...orders.map(o => o.sn)) + 1 : 1;
-
-const vendorEl = document.getElementById('vendor');
-const siteEl = document.getElementById('site');
-const productEl = document.getElementById('product');
-const qtyEl = document.getElementById('quantity');
-const priceEl = document.getElementById('price');
-const orderedByEl = document.getElementById('orderedBy');
-const statusEl = document.getElementById('status');
-
-/* ---------- ADD ORDER ---------- */
-function addOrder() {
-  if (!adDateEl.value || !vendorEl.value || !siteEl.value || !productEl.value || !qtyEl.value || !priceEl.value)
-    return alert('Fill all fields');
-
-  orders.push({
-    sn: sn++,
-    ad: adDateEl.value,
-    bs: getNepaliDate(adDateEl.value),
-    vendor: vendorEl.value,
-    site: siteEl.value,
-    product: productEl.value,
-    qty: qtyEl.value,
-    price: priceEl.value,
-    total: qtyEl.value * priceEl.value,
-    orderedBy: orderedByEl.value,
-    status: statusEl.value
-  });
-
-  localStorage.setItem('orders', JSON.stringify(orders));
-
-  vendorEl.value = productEl.value = qtyEl.value = priceEl.value = orderedByEl.value = '';
-  adDateEl.value = today;
-
-  render();
+/* CLEAR */
+function clearForm(){
+vendor.value=vatpan.value=product.value=qty.value=rate.value=orderedBy.value='';
+site.value='';status.value='Pending';editIndex=null;autoDT();
 }
 
-/* ---------- RENDER ---------- */
-function render() {
-  renderVendorList();
-  renderSiteTables();
-  renderSummary();
+/* STATUS BADGE */
+const badge=s=>s==='Approved'
+?'<span class="bg-green-600 text-white px-2 py-1 rounded text-xs">Approved</span>'
+:'<span class="bg-red-600 text-white px-2 py-1 rounded text-xs">Pending</span>';
+
+/* RENDER */
+function render(){
+siteTables.innerHTML='';
+let summaryData={};
+
+orders.forEach(o=>{
+summaryData[o.site]=(summaryData[o.site]||0)+o.total;
+});
+
+Object.keys(summaryData).forEach(site=>{
+const siteOrders=orders.filter(o=>o.site===site);
+const total=summaryData[site];
+
+siteTables.innerHTML+=`
+<div class="mt-8">
+<h3 class="font-bold text-red-600 mb-2">${site}</h3>
+
+<div class="flex gap-2 mb-2">
+<button onclick="siteExcel('${site}')" class="bg-green-600 text-white px-3 py-1 rounded text-sm">Excel</button>
+<button onclick="printSite('${site}')" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">Print</button>
+</div>
+
+<table class="w-full border text-sm print-area" id="${site}">
+<thead class="bg-gray-200">
+<tr>
+<th class="border">SN</th>
+<th class="border">Date</th>
+<th class="border">Vendor</th>
+<th class="border">VAT/PAN</th>
+<th class="border">Product</th>
+<th class="border">Qty</th>
+<th class="border">Rate</th>
+<th class="border">Total</th>
+<th class="border">Status</th>
+<th class="border">Action</th>
+</tr>
+</thead>
+<tbody>
+${siteOrders.map((o,i)=>`
+<tr>
+<td class="border p-1">${o.sn}</td>
+<td class="border p-1">${o.datetime}</td>
+<td class="border p-1">${o.vendor}</td>
+<td class="border p-1">${o.vatpan}</td>
+<td class="border p-1">${o.product}</td>
+<td class="border p-1">${o.qty}</td>
+<td class="border p-1">${o.rate}</td>
+<td class="border p-1">${o.total}</td>
+<td class="border p-1 text-center">${badge(o.status)}</td>
+<td class="border p-1 text-center space-x-1">
+<button onclick="editOrder(${orders.indexOf(o)})" class="bg-blue-600 text-white px-2 py-1 text-xs rounded">Edit</button>
+<button onclick="deleteOrder(${orders.indexOf(o)})" class="bg-red-600 text-white px-2 py-1 text-xs rounded">Delete</button>
+<button onclick="bill(${orders.indexOf(o)})" class="bg-gray-800 text-white px-2 py-1 text-xs rounded">Bill</button>
+</td>
+</tr>`).join('')}
+</tbody>
+</table>
+
+<div class="font-bold mt-2">Total: Rs ${total}</div>
+</div>`;
+});
+
+/* SUMMARY */
+summary.innerHTML='';
+let grand=0;
+Object.keys(summaryData).forEach(s=>{
+grand+=summaryData[s];
+summary.innerHTML+=`
+<tr>
+<td class="border p-2">${s}</td>
+<td class="border p-2 font-bold">${summaryData[s]}</td>
+</tr>`;
+});
+grandTotal.innerText=grand;
+
+summaryDT.innerText=
+"Upto "+new Date().toLocaleDateString()+" "+new Date().toLocaleTimeString()+
+", orders have been placed and money spent.";
 }
 render();
 
-/* ---------- VENDOR LIST ---------- */
-function renderVendorList() {
-  const list = document.getElementById('vendorList');
-  const vendors = [...new Set(orders.map(o => o.vendor))];
-  list.innerHTML = vendors.map(v => `<option value="${v}">`).join('');
+/* EDIT */
+function editOrder(i){
+const o=orders[i];
+editIndex=i;
+datetime.value=o.datetime;
+vendor.value=o.vendor;
+vatpan.value=o.vatpan;
+site.value=o.site;
+product.value=o.product;
+qty.value=o.qty;
+rate.value=o.rate;
+orderedBy.value=o.orderedBy;
+status.value=o.status;
 }
 
-/* ---------- SITE TABLES ---------- */
-function renderSiteTables() {
-  const container = document.getElementById('siteTables');
-  container.innerHTML = '';
-
-  const sites = [...new Set(orders.map(o => o.site))];
-
-  sites.forEach(site => {
-    const siteOrders = orders.filter(o => o.site === site);
-    const total = siteOrders.reduce((s, o) => s + o.total, 0);
-
-    const rows = siteOrders.map(o => `
-      <tr>
-        <td class="border p-1">${o.sn}</td>
-        <td class="border p-1">${o.ad}</td>
-        <td class="border p-1">${o.bs}</td>
-        <td class="border p-1">${o.vendor}</td>
-        <td class="border p-1">${o.product}</td>
-        <td class="border p-1">${o.qty}</td>
-        <td class="border p-1">${o.price}</td>
-        <td class="border p-1">${o.total}</td>
-        <td class="border p-1">${o.status}</td>
-        <td class="border p-1 text-center">
-          <button onclick="billPDF(${o.sn})" class="bg-blue-600 text-white px-2 py-1 text-xs rounded">Bill</button>
-        </td>
-      </tr>
-    `).join('');
-
-    container.innerHTML += `
-    <div class="mt-8">
-      <h3 class="font-bold text-red-600 mb-2">${site}</h3>
-      <table class="w-full text-sm border">
-        <thead class="bg-gray-200">
-          <tr>
-            <th class="border">SN</th><th class="border">AD</th><th class="border">BS</th>
-            <th class="border">Vendor</th><th class="border">Product</th>
-            <th class="border">Qty</th><th class="border">Rate</th>
-            <th class="border">Total</th><th class="border">Status</th><th class="border">Bill</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-
-      <div class="flex gap-3 mt-2">
-        <button onclick="sitePDF('${site}')" class="bg-red-600 text-white px-4 py-1 rounded">Site PDF</button>
-        <button onclick="siteExcel('${site}')" class="bg-green-600 text-white px-4 py-1 rounded">Site Excel</button>
-        <span class="font-bold ml-auto">Total: Rs ${total}</span>
-      </div>
-    </div>`;
-  });
+/* DELETE */
+function deleteOrder(i){
+if(confirm('Delete this order?')){
+orders.splice(i,1);
+localStorage.setItem('orders',JSON.stringify(orders));
+render();
+}
 }
 
-/* ---------- SUMMARY ---------- */
-function renderSummary() {
-  const body = document.getElementById('siteSummary');
-  body.innerHTML = '';
-
-  [...new Set(orders.map(o => o.site))].forEach(site => {
-    const total = orders.filter(o => o.site === site).reduce((s, o) => s + o.total, 0);
-    body.innerHTML += `
-      <tr>
-        <td class="border p-2">${site}</td>
-        <td class="border p-2 font-bold">${total}</td>
-      </tr>`;
-  });
+/* SITE EXCEL */
+function siteExcel(site){
+const data=orders.filter(o=>o.site===site);
+const ws=XLSX.utils.json_to_sheet(data);
+const wb=XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb,ws,site);
+XLSX.writeFile(wb,`${site}.xlsx`);
 }
 
-/* ---------- BILL PDF ---------- */
-function billPDF(sn) {
-  const o = orders.find(x => x.sn === sn);
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  doc.text('Swostik Construction - Vendor Bill', 14, 20);
-  doc.autoTable({
-    startY: 30,
-    body: [
-      ['Bill No', o.sn],
-      ['AD Date', o.ad],
-      ['BS Date', o.bs],
-      ['Vendor', o.vendor],
-      ['Site', o.site],
-      ['Product', o.product],
-      ['Qty', o.qty],
-      ['Rate', o.price],
-      ['Total', o.total]
-    ]
-  });
-
-  doc.text('Authorized Signature:', 14, doc.lastAutoTable.finalY + 20);
-  doc.save(`Bill-${o.sn}.pdf`);
+/* SITE PRINT */
+function printSite(id){
+const c=document.getElementById(id).outerHTML;
+document.body.innerHTML=c;
+window.print();
+location.reload();
 }
 
-/* ---------- SITE PDF ---------- */
-function sitePDF(site) {
-  const data = orders.filter(o => o.site === site);
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('l');
+/* BILL PDF */
+function bill(i){
+const o=orders[i];
+const {jsPDF}=window.jspdf;
+const d=new jsPDF();
 
-  doc.text(`Site Bills - ${site}`, 14, 15);
-  doc.autoTable({
-    startY: 25,
-    head: [['SN', 'AD', 'BS', 'Vendor', 'Product', 'Qty', 'Rate', 'Total']],
-    body: data.map(o => [o.sn, o.ad, o.bs, o.vendor, o.product, o.qty, o.price, o.total])
-  });
+d.text('Swostik Construction',14,15);
+d.text('Vendor Bill',14,22);
 
-  const total = data.reduce((s, o) => s + o.total, 0);
-  doc.text(`Total Amount: Rs ${total}`, 14, doc.lastAutoTable.finalY + 10);
-  doc.text('Authorized Signature:', 14, doc.lastAutoTable.finalY + 25);
+d.autoTable({
+startY:30,
+body:[
+['Bill No',o.sn],
+['Date',o.datetime],
+['Vendor',o.vendor],
+['VAT / PAN',o.vatpan],
+['Site',o.site],
+['Product',o.product],
+['Qty',o.qty],
+['Rate',o.rate],
+['Total',`Rs ${o.total}`],
+['Status',o.status]
+]
+});
 
-  doc.save(`${site}-Bills.pdf`);
+let y=d.lastAutoTable.finalY+20;
+d.text('Authorized Signature:',14,y);
+d.line(60,y+1,140,y+1);
+d.save(`Bill-${o.sn}.pdf`);
 }
 
-/* ---------- SITE EXCEL ---------- */
-function siteExcel(site) {
-  const data = orders.filter(o => o.site === site);
-  const ws = XLSX.utils.json_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, site);
-  XLSX.writeFile(wb, `${site}-Bills.xlsx`);
+/* SUMMARY PRINT */
+function printSummary(){
+const c=document.getElementById('summarySection').outerHTML;
+document.body.innerHTML=c;
+window.print();
+location.reload();
 }
 
-/* ---------- EXPORT ALL ---------- */
-function exportAllPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('l');
+/* SUMMARY PDF */
+function summaryPDF(){
+const {jsPDF}=window.jspdf;
+const d=new jsPDF();
 
-  doc.text('All Orders', 14, 15);
-  doc.autoTable({
-    startY: 25,
-    head: [['SN','AD','BS','Vendor','Site','Product','Qty','Rate','Total']],
-    body: orders.map(o => [o.sn, o.ad, o.bs, o.vendor, o.site, o.product, o.qty, o.price, o.total])
-  });
+d.text('Swostik Construction',14,15);
+d.text('Site-wise Purchase Summary',14,22);
+d.text(summaryDT.innerText,14,28);
 
-  doc.save('All-Orders.pdf');
+d.autoTable({
+startY:35,
+head:[['Site','Total']],
+body:[...summary.children].map(r=>[
+r.children[0].innerText,
+r.children[1].innerText
+])
+});
+
+d.text(`Grand Total: Rs ${grandTotal.innerText}`,
+14,d.lastAutoTable.finalY+10);
+
+d.save('Site-Summary.pdf');
 }
 
-function exportAllExcel() {
-  const ws = XLSX.utils.json_to_sheet(orders);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Orders');
-  XLSX.writeFile(wb, 'All-Orders.xlsx');
+/* SUMMARY EXCEL */
+function summaryExcel(){
+const data=[...summary.children].map(r=>({
+Site:r.children[0].innerText,
+Total:r.children[1].innerText
+}));
+data.push({Site:'Grand Total',Total:grandTotal.innerText});
+const ws=XLSX.utils.json_to_sheet(data);
+const wb=XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb,ws,'Summary');
+XLSX.writeFile(wb,'Site-Summary.xlsx');
 }
 </script>
 
 </body>
 </html>
-
 
 
