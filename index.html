@@ -5,36 +5,16 @@
 <title>Swostik Construction - PO System</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- Tailwind -->
 <script src="https://cdn.tailwindcss.com"></script>
-
-<!-- jsPDF -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
-
-<!-- Excel -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-<style>
-@media print {
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position:absolute; left:0; top:0; width:100%; }
-}
-</style>
 </head>
 
 <body class="bg-gray-100 p-6">
 <div class="max-w-7xl mx-auto bg-white p-6 rounded-xl shadow">
 
-<!-- HEADER -->
-<div class="flex gap-4 mb-6">
-<img src="logo.jpg" class="w-20 h-20 rounded-full object-contain">
-<div>
-<h1 class="text-2xl font-bold text-red-600">Swostik Construction</h1>
-<p class="text-gray-500">Vendor Order / Purchase Order System</p>
-</div>
-</div>
+<h1 class="text-2xl font-bold text-red-600 mb-4">Swostik Construction – PO System</h1>
 
 <!-- FORM -->
 <div class="grid grid-cols-1 md:grid-cols-10 gap-3">
@@ -44,10 +24,10 @@
 
 <select id="site" class="border p-2 rounded">
 <option value="">Select Site</option>
-<option>Pepsicola Site</option>
-<option>Thimi Site</option>
-<option>Budhanilkantha Site</option>
-<option>Banepa Site</option>
+<option>Pepsicola</option>
+<option>Thimi</option>
+<option>Budhanilkantha</option>
+<option>Banepa</option>
 </select>
 
 <input id="product" class="border p-2 rounded" placeholder="Product">
@@ -61,7 +41,20 @@
 </select>
 </div>
 
-<button onclick="saveOrder()" class="mt-4 bg-red-600 text-white px-6 py-2 rounded">
+<button onclick="addItem()" class="mt-3 bg-blue-600 text-white px-4 py-2 rounded">
+Add Item
+</button>
+
+<table class="w-full border text-sm mt-3">
+<thead class="bg-gray-200">
+<tr>
+<th>Product</th><th>Qty</th><th>Rate</th><th>Total</th><th>Action</th>
+</tr>
+</thead>
+<tbody id="itemTable"></tbody>
+</table>
+
+<button onclick="saveOrder()" class="mt-3 bg-red-600 text-white px-6 py-2 rounded">
 Save Order
 </button>
 
@@ -69,200 +62,185 @@ Save Order
 <div id="siteTables" class="mt-10"></div>
 
 <!-- SUMMARY -->
-<div id="summarySection" class="mt-12 print-area">
-<h2 class="text-lg font-bold text-red-600">Site-Wise Total Summary</h2>
-<p id="summaryDT" class="text-sm text-gray-600 mb-2"></p>
-
+<div class="mt-10 bg-gray-100 p-4 rounded">
+<h2 class="font-bold text-red-600 mb-2">Live Site Summary</h2>
 <table class="w-full border text-sm">
-<thead class="bg-gray-200">
-<tr>
-<th class="border p-2">Site</th>
-<th class="border p-2">Total Amount (Rs)</th>
-</tr>
+<thead class="bg-gray-300">
+<tr><th>Site</th><th>Total Cost (Rs)</th></tr>
 </thead>
 <tbody id="summary"></tbody>
 <tfoot>
-<tr class="bg-gray-100 font-bold">
-<td class="border p-2">Grand Total</td>
-<td class="border p-2" id="grandTotal"></td>
+<tr class="font-bold bg-gray-200">
+<td>Grand Total</td>
+<td id="grandTotal"></td>
 </tr>
 </tfoot>
 </table>
 </div>
 
-<div class="flex gap-3 mt-4">
-<button onclick="printSummary()" class="bg-gray-700 text-white px-4 py-2 rounded">Print Summary</button>
-<button onclick="summaryPDF()" class="bg-red-600 text-white px-4 py-2 rounded">Summary PDF</button>
-<button onclick="summaryExcel()" class="bg-green-600 text-white px-4 py-2 rounded">Summary Excel</button>
-</div>
-
 </div>
 
 <script>
-/* AUTO DATE TIME */
-function autoDT(){
-datetime.value=new Date().toLocaleDateString()+" "+new Date().toLocaleTimeString();
-}
+/* AUTO DATE */
+function autoDT(){ datetime.value=new Date().toLocaleString(); }
 autoDT();
 
 /* DATA */
-let orders=JSON.parse(localStorage.getItem('orders'))||[];
-let sn=orders.length?Math.max(...orders.map(o=>o.sn))+1:1;
-let editIndex=null;
+let orders = JSON.parse(localStorage.getItem('orders')) || [];
+let sn = orders.length ? Math.max(...orders.map(o=>o.sn)) + 1 : 1;
+let items = [];
 
-/* SAVE / UPDATE */
+/* ADD ITEM */
+function addItem(){
+if(!product.value||!qty.value||!rate.value) return alert('Fill item fields');
+items.push({
+product:product.value,
+qty:+qty.value,
+rate:+rate.value,
+total:+qty.value * +rate.value
+});
+renderItems();
+product.value=qty.value=rate.value='';
+}
+
+function renderItems(){
+itemTable.innerHTML='';
+items.forEach((i,idx)=>{
+itemTable.innerHTML+=`
+<tr>
+<td>${i.product}</td>
+<td>${i.qty}</td>
+<td>${i.rate}</td>
+<td>${i.total}</td>
+<td>
+<button onclick="items.splice(${idx},1);renderItems()" class="text-red-600 text-sm">Delete</button>
+</td>
+</tr>`;
+});
+}
+
+/* SAVE ORDER */
 function saveOrder(){
-if(!vendor.value||!vatpan.value||!site.value||!product.value||!qty.value||!rate.value)
-return alert('Fill all fields');
+if(!vendor.value||!vatpan.value||!site.value||items.length===0)
+return alert('Fill vendor info & add items');
 
-const data={
-sn:editIndex===null?sn++:orders[editIndex].sn,
+items.forEach(it=>{
+orders.push({
+sn:sn++,
 datetime:datetime.value,
 vendor:vendor.value,
 vatpan:vatpan.value,
 site:site.value,
-product:product.value,
-qty:+qty.value,
-rate:+rate.value,
-total:+qty.value*+rate.value,
+product:it.product,
+qty:it.qty,
+rate:it.rate,
+total:it.total,
 orderedBy:orderedBy.value,
 status:status.value
-};
+});
+});
 
-editIndex===null?orders.push(data):orders[editIndex]=data;
 localStorage.setItem('orders',JSON.stringify(orders));
-clearForm();render();
+items=[];renderItems();
+vendor.value=vatpan.value=orderedBy.value='';
+site.value='';status.value='Pending';
+autoDT();
+render();
 }
 
-/* CLEAR FORM */
-function clearForm(){
-vendor.value=vatpan.value=product.value=qty.value=rate.value=orderedBy.value='';
-site.value='';status.value='Pending';editIndex=null;autoDT();
+/* STATUS COLOR */
+function badge(status){
+return status==='Approved'?'bg-green-600 text-white':'bg-red-600 text-white';
 }
 
-/* RENDER STATUS COLOR */
-function statusBadge(status){
-return status==='Approved'
-?'bg-green-600 text-white'
-:'bg-red-600 text-white';
+/* SMOOTH STATUS CHANGE */
+function changeStatus(i, el){
+orders[i].status = el.value;
+saveLS();
+el.className = `border text-xs ${badge(el.value)}`;
 }
 
 /* RENDER */
 function render(){
 siteTables.innerHTML='';
-let summaryData={};
+let sum={}, grand=0;
 
 orders.forEach(o=>{
-summaryData[o.site]=(summaryData[o.site]||0)+o.total;
+sum[o.site]=(sum[o.site]||0)+o.total;
 });
 
-Object.keys(summaryData).forEach(site=>{
-const siteOrders=orders.filter(o=>o.site===site);
-const total=summaryData[site];
+Object.keys(sum).forEach(site=>{
+const list=orders.filter(o=>o.site===site);
 
 siteTables.innerHTML+=`
-<div class="mt-8">
-<h3 class="font-bold text-red-600 mb-2">${site}</h3>
+<h3 class="font-bold text-red-600 mt-6">${site}</h3>
 
-<div class="flex gap-2 mb-2">
-<button onclick="siteExcel('${site}')" class="bg-green-600 text-white px-3 py-1 rounded text-sm">Excel</button>
-<button onclick="printSite('${site}')" class="bg-gray-700 text-white px-3 py-1 rounded text-sm">Print</button>
+<div class="mb-2 flex gap-2">
+<button onclick="siteExcel('${site}')"
+class="bg-green-600 text-white px-3 py-1 rounded text-sm">Excel</button>
+
+<button onclick="vendorBillPrompt('${site}')"
+class="bg-gray-800 text-white px-3 py-1 rounded text-sm">Vendor Bill</button>
 </div>
 
-<table class="w-full border text-sm print-area" id="${site}">
+<table class="w-full border text-sm">
 <thead class="bg-gray-200">
 <tr>
-<th class="border">SN</th>
-<th class="border">Date</th>
-<th class="border">Vendor</th>
-<th class="border">VAT/PAN</th>
-<th class="border">Product</th>
-<th class="border">Qty</th>
-<th class="border">Rate</th>
-<th class="border">Total</th>
-<th class="border">Status</th>
-<th class="border">Action</th>
+<th>SN</th><th>Date</th><th>Vendor</th><th>Product</th>
+<th>Qty</th><th>Rate</th><th>Total</th><th>Status</th><th>PDF</th><th>Delete</th>
 </tr>
 </thead>
 <tbody>
-${siteOrders.map(o=>`
+${list.map(o=>`
 <tr>
-<td class="border p-1">${o.sn}</td>
-<td class="border p-1">${o.datetime}</td>
-<td class="border p-1">${o.vendor}</td>
-<td class="border p-1">${o.vatpan}</td>
-<td class="border p-1">${o.product}</td>
-<td class="border p-1">${o.qty}</td>
-<td class="border p-1">${o.rate}</td>
-<td class="border p-1">${o.total}</td>
-<td class="border p-1 text-center">
-<select onchange="changeStatus(${orders.indexOf(o)}, this.value)"
-  class="border rounded text-xs p-1 ${statusBadge(o.status)}">
+<td>${o.sn}</td>
+<td>${o.datetime}</td>
+<td>${o.vendor}</td>
+<td>${o.product}</td>
+<td>${o.qty}</td>
+<td>${o.rate}</td>
+<td>${o.total}</td>
+<td>
+<select onchange="changeStatus(${orders.indexOf(o)}, this)" 
+class="border text-xs ${badge(o.status)}">
 <option value="Pending" ${o.status==='Pending'?'selected':''}>Pending</option>
 <option value="Approved" ${o.status==='Approved'?'selected':''}>Approved</option>
 </select>
 </td>
-<td class="border p-1 text-center space-x-1">
-<button onclick="editOrder(${orders.indexOf(o)})" class="bg-blue-600 text-white px-2 py-1 text-xs rounded">Edit</button>
-<button onclick="deleteOrder(${orders.indexOf(o)})" class="bg-red-600 text-white px-2 py-1 text-xs rounded">Delete</button>
-<button onclick="bill(${orders.indexOf(o)})" class="bg-gray-800 text-white px-2 py-1 text-xs rounded">Bill</button>
+<td>
+<button onclick="itemBill(${orders.indexOf(o)})" class="bg-gray-700 text-white px-2 py-1 text-xs rounded">PDF</button>
+</td>
+<td>
+<button onclick="deleteOrder(${orders.indexOf(o)})" class="text-red-600 text-sm">Delete</button>
 </td>
 </tr>`).join('')}
 </tbody>
 </table>
 
-<div class="font-bold mt-2">Total: Rs ${total}</div>
-</div>`;
+<div class="font-bold mt-1">Total: Rs ${sum[site]}</div>
+`;
 });
 
-/* SUMMARY */
 summary.innerHTML='';
-let grand=0;
-Object.keys(summaryData).forEach(s=>{
-grand+=summaryData[s];
-summary.innerHTML+=`
-<tr>
-<td class="border p-2">${s}</td>
-<td class="border p-2 font-bold">${summaryData[s]}</td>
-</tr>`;
+Object.keys(sum).forEach(s=>{
+summary.innerHTML+=`<tr><td>${s}</td><td>${sum[s]}</td></tr>`;
+grand+=sum[s];
 });
 grandTotal.innerText=grand;
-
-summaryDT.innerText=
-"Upto "+new Date().toLocaleDateString()+" "+new Date().toLocaleTimeString()+
-", orders have been placed and money spent.";
 }
-render();
 
-/* EDIT */
-function editOrder(i){
-const o=orders[i];
-editIndex=i;
-datetime.value=o.datetime;
-vendor.value=o.vendor;
-vatpan.value=o.vatpan;
-site.value=o.site;
-product.value=o.product;
-qty.value=o.qty;
-rate.value=o.rate;
-orderedBy.value=o.orderedBy;
-status.value=o.status;
+/* SAVE LS */
+function saveLS(){
+localStorage.setItem('orders',JSON.stringify(orders));
+render();
 }
 
 /* DELETE */
 function deleteOrder(i){
-if(confirm('Delete this order?')){
+if(confirm('Delete this product?')){
 orders.splice(i,1);
-localStorage.setItem('orders',JSON.stringify(orders));
-render();
+saveLS();
 }
-}
-
-/* CHANGE STATUS */
-function changeStatus(i,value){
-orders[i].status=value;
-localStorage.setItem('orders',JSON.stringify(orders));
-render();
 }
 
 /* SITE EXCEL */
@@ -274,93 +252,61 @@ XLSX.utils.book_append_sheet(wb,ws,site);
 XLSX.writeFile(wb,`${site}.xlsx`);
 }
 
-/* SITE PRINT */
-function printSite(id){
-const c=document.getElementById(id).outerHTML;
-document.body.innerHTML=c;
-window.print();
-location.reload();
-}
-
-/* BILL PDF */
-function bill(i){
+/* ITEM PDF */
+function itemBill(i){
 const o=orders[i];
 const {jsPDF}=window.jspdf;
 const d=new jsPDF();
-
 d.text('Swostik Construction',14,15);
-d.text('Vendor Bill',14,22);
-
+d.text('Item Bill',14,22);
 d.autoTable({
 startY:30,
 body:[
 ['Bill No',o.sn],
-['Date',o.datetime],
 ['Vendor',o.vendor],
-['VAT / PAN',o.vatpan],
 ['Site',o.site],
 ['Product',o.product],
 ['Qty',o.qty],
 ['Rate',o.rate],
-['Total',`Rs ${o.total}`],
-['Status',o.status]
+['Total',`Rs ${o.total}`]
 ]
 });
-
-let y=d.lastAutoTable.finalY+20;
-d.text('Authorized Signature:',14,y);
-d.line(60,y+1,140,y+1);
-d.save(`Bill-${o.sn}.pdf`);
+d.save(`Item-${o.sn}.pdf`);
 }
 
-/* SUMMARY PRINT */
-function printSummary(){
-const c=document.getElementById('summarySection').outerHTML;
-document.body.innerHTML=c;
-window.print();
-location.reload();
+/* VENDOR COMBINED BILL */
+function vendorBillPrompt(site){
+const v = prompt('Enter Vendor Name');
+if(!v) return;
+vendorBill(site,v);
 }
 
-/* SUMMARY PDF */
-function summaryPDF(){
+function vendorBill(site,vendor){
+const data = orders.filter(o=>o.site===site && o.vendor===vendor);
+if(data.length===0) return alert('No data found');
+
+let total = data.reduce((s,o)=>s+o.total,0);
 const {jsPDF}=window.jspdf;
 const d=new jsPDF();
 
 d.text('Swostik Construction',14,15);
-d.text('Site-wise Purchase Summary',14,22);
-d.text(summaryDT.innerText,14,28);
+d.text('Vendor Combined Bill',14,22);
+d.text(`Vendor: ${vendor}`,14,30);
+d.text(`Site: ${site}`,14,36);
 
 d.autoTable({
-startY:35,
-head:[['Site','Total']],
-body:[...summary.children].map(r=>[
-r.children[0].innerText,
-r.children[1].innerText
-])
+startY:42,
+head:[['Product','Qty','Rate','Total']],
+body:data.map(o=>[o.product,o.qty,o.rate,o.total])
 });
 
-d.text(`Grand Total: Rs ${grandTotal.innerText}`,
-14,d.lastAutoTable.finalY+10);
-
-d.save('Site-Summary.pdf');
+d.text(`Grand Total: Rs ${total}`,14,d.lastAutoTable.finalY+10);
+d.save(`Vendor-${vendor}-${site}.pdf`);
 }
 
-/* SUMMARY EXCEL */
-function summaryExcel(){
-const data=[...summary.children].map(r=>({
-Site:r.children[0].innerText,
-Total:r.children[1].innerText
-}));
-data.push({Site:'Grand Total',Total:grandTotal.innerText});
-const ws=XLSX.utils.json_to_sheet(data);
-const wb=XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb,ws,'Summary');
-XLSX.writeFile(wb,'Site-Summary.xlsx');
-}
+render();
 </script>
 
 </body>
 </html>
-
-
 
